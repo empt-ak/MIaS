@@ -5,14 +5,15 @@
  */
 package cz.muni.fi.mias.indexing.doc;
 
+import cz.muni.fi.mias.Settings;
+import cz.muni.fi.mias.indexing.scheduling.BackgroundProcessMonitor;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayList;
-import java.util.List;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -20,17 +21,17 @@ import org.apache.logging.log4j.Logger;
  *
  * @author Dominik Szalai - emptulik at gmail.com
  */
-public class FolderVisitor implements RecursiveFileVisitor
+public class MIaSFileVisitor implements FileVisitor<Path>
 {
-    private static final Logger LOG = LogManager.getLogger(FolderVisitor.class);
+    private static final Logger LOG = LogManager.getLogger(MIaSFileVisitor.class);
 
-    private final List<Path> visitedPaths = new ArrayList<>();
+    private final BackgroundProcessMonitor fileProgressMonitor;
     private final PathMatcher matcher = FileSystems.getDefault().getPathMatcher("glob:*{html,xhtml,zip}");
-    private long docLimit = -1;
-
-    public FolderVisitor(long docLimit)
+    private long docLimit = Settings.getDocLimit();;
+    private long processed = 0;
+    public MIaSFileVisitor(BackgroundProcessMonitor fileProgressMonitor)
     {
-        this.docLimit = docLimit;
+        this.fileProgressMonitor = fileProgressMonitor;
     }
 
     @Override
@@ -56,7 +57,8 @@ public class FolderVisitor implements RecursiveFileVisitor
             if (matcher.matches(file.getFileName()))
             {
                 LOG.trace("Adding file {} to output list.", file);
-                visitedPaths.add(file);
+                fileProgressMonitor.getPaths().offer(file);
+                processed++;
                 return FileVisitResult.CONTINUE;
             }
             else
@@ -86,12 +88,6 @@ public class FolderVisitor implements RecursiveFileVisitor
         return FileVisitResult.CONTINUE;
     }
     
-    @Override
-    public List<Path> getVisitedPaths()
-    {
-        return visitedPaths;
-    }
-    
     private boolean canContinue()
     {
         if(docLimit == -1)
@@ -99,6 +95,6 @@ public class FolderVisitor implements RecursiveFileVisitor
             return true;
         }
         
-        return visitedPaths.size() <= docLimit;
+        return processed <= docLimit;
     }
 }

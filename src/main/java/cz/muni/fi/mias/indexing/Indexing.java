@@ -2,19 +2,21 @@ package cz.muni.fi.mias.indexing;
 
 import cz.muni.fi.mias.PayloadSimilarity;
 import cz.muni.fi.mias.Settings;
-import cz.muni.fi.mias.indexing.doc.FileExtDocumentHandler;
-import cz.muni.fi.mias.indexing.doc.FolderVisitor;
-import cz.muni.fi.mias.indexing.doc.RecursiveFileVisitor;
+import cz.muni.fi.mias.indexing.doc.MIaSFileVisitor;
+import cz.muni.fi.mias.indexing.scheduling.BackgroundProcessMonitor;
+import cz.muni.fi.mias.indexing.scheduling.BackgroundTaskHandler;
 import cz.muni.fi.mias.math.MathTokenizer;
 import java.io.File;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
+import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
+import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Scanner;
 import java.util.concurrent.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -42,11 +44,11 @@ public class Indexing {
     
     private Path indexDirectory;
     private Analyzer analyzer = new StandardAnalyzer();
-    private long docLimit = Settings.getDocLimit();
+//    private long docLimit = Settings.getDocLimit();
     private long count = 0;
     private long progress = 0;
     private long fileProgress = 0;
-    private String storage;
+    private Path storageDirectory;
     private long startTime;
 
     /**
@@ -64,13 +66,11 @@ public class Indexing {
      * the files will be index with.
      */
     public void indexFiles(String path, String rootDir) {
-        storage = rootDir;
-        if (!storage.endsWith(File.separator)) {
-            storage += File.separator;
-        }
-        final File docDir = new File(path);
-        if (!docDir.exists() || !docDir.canRead()) {
-            LOG.fatal("Document directory '{}' does not exist or is not readable, please check the path.",docDir.getAbsoluteFile());            
+        new Scanner(System.in).next();
+        storageDirectory = Paths.get(rootDir);
+        final Path documentDirectory = Paths.get(path);
+        if (!Files.exists(documentDirectory) || !Files.isReadable(documentDirectory)) {
+            LOG.fatal("Document directory '{}' does not exist or is not readable, please check the path.",documentDirectory);            
             System.exit(1);
         }
         try {
@@ -82,34 +82,22 @@ public class Indexing {
             config.setIndexDeletionPolicy(new KeepOnlyLastCommitDeletionPolicy());
             try (IndexWriter writer = new IndexWriter(FSDirectory.open(indexDirectory.toFile()), config))
             {
+                BackgroundProcessMonitor fileProgressMonitor = new BackgroundProcessMonitor();
+                FileVisitor<Path> fileVisitor = new MIaSFileVisitor(fileProgressMonitor);
+                BackgroundTaskHandler taskHandler = new BackgroundTaskHandler(fileProgressMonitor, writer);
+                taskHandler.initThreads();
+                Files.walkFileTree(documentDirectory, fileVisitor);    
+                fileProgressMonitor.setDoneLoading(true);
+                
+                taskHandler.shutdown();
                 LOG.info("Getting list of documents to index.");
-                List<File> files = getDocs(docDir);
-                countFiles(files);
-                LOG.info("Number of documents to index is {}",count);
-                indexDocsThreaded(files, writer);
+//                List<File> files = getDocs(documentDirectory);
+//                countFiles(files);
+//                LOG.info("Number of documents to index is {}",count);
+//                indexDocsThreaded(files, writer);
             }
-        } catch (IOException ex) {
+        } catch (IOException | ExecutionException | InterruptedException ex) {
             LOG.error(ex);
-        }
-    }
-
-    private List<File> getDocs(File startPath) throws IOException {
-        if(!startPath.canRead())
-        {
-            throw new IllegalArgumentException("Given path is not a folder. # "+startPath);
-        }
-        else
-        {
-            RecursiveFileVisitor fileVisitor = new FolderVisitor(docLimit);
-            Files.walkFileTree(startPath.toPath(), fileVisitor);
-            // TODO remove later
-            List<File> result = new ArrayList<>(fileVisitor.getVisitedPaths().size());
-            for(Path p : fileVisitor.getVisitedPaths())
-            {
-                result.add(p.toFile());
-            }
-            
-            return result;
         }
     }
 
@@ -124,8 +112,9 @@ public class Indexing {
                 for (int i = 0; i < tasks.length; i++) {
                     if (tasks[i] == null && it.hasNext()) {
                         File f = it.next();
-                        String path = resolvePath(f);
-                        Callable callable = new FileExtDocumentHandler(f, path);
+                        String path = null;//resolvePath(f);
+//                        Callable callable = new FileExtDocumentHandler(f, path);
+                        Callable callable = null;
                         FutureTask ft = new FutureTask(callable);
                         tasks[i] = ft;
                         executor.execute(ft);
@@ -235,7 +224,7 @@ public class Indexing {
                 }
             } else {
                 LOG.info("Deleting file {}.",file.getAbsoluteFile());
-                writer.deleteDocuments(new Term("path",resolvePath(file)));
+                writer.deleteDocuments(new Term("path",resolvePath(file.toPath()).toString()));
             }
         }
     }
@@ -269,9 +258,8 @@ public class Indexing {
 
     
 
-    private String resolvePath(File file) throws IOException {
-        String path = file.getCanonicalPath();
-        return path.substring(storage.length());
+    private Path resolvePath(Path file) throws IOException {
+        return storageDirectory.relativize(file);
     }
 
     private long getCpuTime() {
@@ -308,11 +296,11 @@ public class Indexing {
         LOG.info(Settings.EMPTY_STRING);
     }
 
-    private void countFiles(List<File> files) {
-        if (docLimit > 0) {
-            count = Math.min(files.size(), docLimit);
-        } else {
-            count = files.size();
-        }
-    }
+//    private void countFiles(List<File> files) {
+//        if (docLimit > 0) {
+//            count = Math.min(files.size(), docLimit);
+//        } else {
+//            count = files.size();
+//        }
+//    }
 }
