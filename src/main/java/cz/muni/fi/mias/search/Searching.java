@@ -61,7 +61,7 @@ public class Searching {
      */
     public Searching() {
         try {
-            this.indexSearcher = new IndexSearcher(IndexReader.open(FSDirectory.open(new File(Settings.getIndexDir()))));
+            this.indexSearcher = new IndexSearcher(IndexReader.open(FSDirectory.open(Settings.getIndexDir().toFile())));
             this.indexSearcher.setSimilarity(ps);
             this.storagePath = "";
 //            sug = new TitlesSuggester(indexSearcher.getIndexReader());

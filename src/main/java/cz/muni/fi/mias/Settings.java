@@ -1,6 +1,8 @@
 package cz.muni.fi.mias;
 
 import java.io.FileInputStream;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Properties;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
@@ -92,13 +94,13 @@ public class Settings {
      * 
      * @return Direcotry where the index is located or will be stored.
      */
-    public static String getIndexDir() {
+    public static Path getIndexDir() {
         String result = config.getProperty("INDEXDIR");
         if (result == null || result.equals("")) {
             LOG.error("Broken properties file mias.properties. Please check INDEXDIR entry.");
             System.exit(2);
         }
-        return result;
+        return Paths.get(result);
     }
 
     /**

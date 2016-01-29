@@ -40,7 +40,7 @@ public class Indexing {
 
     private static final Logger LOG = LogManager.getLogger(Indexing.class);
     
-    private File indexDir;
+    private Path indexDirectory;
     private Analyzer analyzer = new StandardAnalyzer();
     private long docLimit = Settings.getDocLimit();
     private long count = 0;
@@ -54,7 +54,7 @@ public class Indexing {
      *
      */
     public Indexing() {
-        this.indexDir = new File(Settings.getIndexDir());
+        this.indexDirectory = Settings.getIndexDir();
     }
 
     /**
@@ -80,7 +80,7 @@ public class Indexing {
             ps.setDiscountOverlaps(false);
             config.setSimilarity(ps);
             config.setIndexDeletionPolicy(new KeepOnlyLastCommitDeletionPolicy());
-            try (IndexWriter writer = new IndexWriter(FSDirectory.open(indexDir), config))
+            try (IndexWriter writer = new IndexWriter(FSDirectory.open(indexDirectory.toFile()), config))
             {
                 LOG.info("Getting list of documents to index.");
                 List<File> files = getDocs(docDir);
@@ -170,7 +170,7 @@ public class Indexing {
         // TODO what do we measure here ? time of optimization or optimiziation
         // and index opening aswell
         startTime = System.currentTimeMillis();
-        try(IndexWriter writer = new IndexWriter(FSDirectory.open(indexDir), config)){
+        try(IndexWriter writer = new IndexWriter(FSDirectory.open(indexDirectory.toFile()), config)){
 //            writer.optimize();    
             LOG.info("Optimizing time: {} ms",System.currentTimeMillis()-startTime);
         } catch (IOException e) {
@@ -182,7 +182,7 @@ public class Indexing {
      * Deletes whole current index directory
      */
     public void deleteIndexDir() {
-        deleteDir(indexDir);
+        deleteDir(indexDirectory.toFile());
     }
 
     private void deleteDir(File f) {
@@ -216,7 +216,7 @@ public class Indexing {
         }
         IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_31, analyzer);
         config.setIndexDeletionPolicy(new KeepOnlyLastCommitDeletionPolicy());
-        try(IndexWriter writer = new IndexWriter(FSDirectory.open(indexDir), config)) { 
+        try(IndexWriter writer = new IndexWriter(FSDirectory.open(indexDirectory.toFile()), config)) { 
             deleteDocs(writer, docDir);
         } catch (IOException ex) {
             System.out.println(ex.getMessage());
@@ -245,8 +245,8 @@ public class Indexing {
      */
     public void getStats() {
         String stats = "\nIndex statistics: \n\n";
-        try(DirectoryReader dr = DirectoryReader.open(FSDirectory.open(indexDir))) {
-            stats += "Index directory: "+indexDir.getAbsolutePath() + "\n";
+        try(DirectoryReader dr = DirectoryReader.open(FSDirectory.open(indexDirectory.toFile()))) {
+            stats += "Index directory: "+indexDirectory + "\n";
             stats += "Number of indexed documents: " + dr.numDocs() + "\n";
             
             long fileSize = 0;
@@ -257,12 +257,8 @@ public class Indexing {
                     fileSize += Long.valueOf(size);
                 }
             }
-            long indexSize = 0;
-            File[] files = indexDir.listFiles();
-            for (File f : files) {
-                indexSize += f.length();
-            }
-            stats += "Index size: " + indexSize + " bytes \n";
+            
+            stats += "Index size: " + Files.size(indexDirectory) + " bytes \n";
             stats += "Approximated size of indexed files: " + fileSize + " bytes \n";
 
             LOG.info(stats);
