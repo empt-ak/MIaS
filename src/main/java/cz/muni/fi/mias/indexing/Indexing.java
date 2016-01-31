@@ -14,10 +14,7 @@ import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Scanner;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutionException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.Analyzer;
@@ -66,7 +63,6 @@ public class Indexing {
      * the files will be index with.
      */
     public void indexFiles(String path, String rootDir) {
-        new Scanner(System.in).next();
         storageDirectory = Paths.get(rootDir);
         final Path documentDirectory = Paths.get(path);
         if (!Files.exists(documentDirectory) || !Files.isReadable(documentDirectory)) {
@@ -83,11 +79,10 @@ public class Indexing {
             try (IndexWriter writer = new IndexWriter(FSDirectory.open(indexDirectory.toFile()), config))
             {
                 BackgroundProcessMonitor fileProgressMonitor = new BackgroundProcessMonitor();
-                FileVisitor<Path> fileVisitor = new MIaSFileVisitor(fileProgressMonitor);
-                BackgroundTaskHandler taskHandler = new BackgroundTaskHandler(fileProgressMonitor, writer);
+                FileVisitor<Path> fileVisitor = new MIaSFileVisitor(fileProgressMonitor, documentDirectory);
+                BackgroundTaskHandler taskHandler = new BackgroundTaskHandler(fileProgressMonitor, writer, documentDirectory);
                 taskHandler.initThreads();
-                Files.walkFileTree(documentDirectory, fileVisitor);    
-                fileProgressMonitor.setDoneLoading(true);
+                Files.walkFileTree(documentDirectory, fileVisitor);
                 
                 taskHandler.shutdown();
                 LOG.info("Getting list of documents to index.");
@@ -98,55 +93,6 @@ public class Indexing {
             }
         } catch (IOException | ExecutionException | InterruptedException ex) {
             LOG.error(ex);
-        }
-    }
-
-    private void indexDocsThreaded(List<File> files, IndexWriter writer) {
-        try {
-            Iterator<File> it = files.iterator();
-            ExecutorService executor = Executors.newFixedThreadPool(Settings.getNumThreads());
-            Future[] tasks = new Future[Settings.getNumThreads()];
-            int running = 0;
-
-            while (it.hasNext() || running > 0) {
-                for (int i = 0; i < tasks.length; i++) {
-                    if (tasks[i] == null && it.hasNext()) {
-                        File f = it.next();
-                        String path = null;//resolvePath(f);
-//                        Callable callable = new FileExtDocumentHandler(f, path);
-                        Callable callable = null;
-                        FutureTask ft = new FutureTask(callable);
-                        tasks[i] = ft;
-                        executor.execute(ft);
-                        running++;
-                    } else if (tasks[i] != null && tasks[i].isDone()) {
-                        List<Document> docs = (List<Document>) tasks[i].get();
-                        running--;
-                        tasks[i] = null;
-                        for (Document doc : docs) {
-                            if (doc != null) {
-                                if (progress % 10000 == 0) {
-                                    printTimes();
-                                    writer.commit();
-                                }
-                                try {
-                                    LOG.info("adding to index {} docId={}",doc.get("path"),doc.get("id"));
-                                    writer.updateDocument(new Term("id", doc.get("id")), doc);
-                                    LOG.info("Documents indexed: {}", ++progress);
-                                } catch (Exception ex) {
-                                    LOG.fatal("Document '{}' indexing failed: {}",doc.get("path"),ex.getMessage());
-                                    LOG.fatal(ex.getStackTrace());
-                                }
-                            }
-                        }
-                        LOG.info("File progress: {} of {} done...",++fileProgress, count);
-                    }
-                }
-            }
-            printTimes();
-            executor.shutdown();
-        } catch (IOException | InterruptedException | ExecutionException ex) {
-            LOG.fatal(ex);
         }
     }
 
@@ -258,7 +204,7 @@ public class Indexing {
 
     
 
-    private Path resolvePath(Path file) throws IOException {
+    private Path resolvePath(Path file){
         return storageDirectory.relativize(file);
     }
 

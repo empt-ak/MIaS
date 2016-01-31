@@ -6,6 +6,8 @@
 package cz.muni.fi.mias.indexing.scheduling;
 
 import cz.muni.fi.mias.Settings;
+import cz.muni.fi.mias.indexing.doc.FileExtDocumentHandler;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -26,17 +28,21 @@ public class BackgroundTaskHandler
     private final List<Future<Long>> tasks = new ArrayList<>(Settings.getNumThreads() - 1);
     private final IndexWriter indexWriter;
     private Long max = Long.valueOf(0);
+    private Path rootPath;
+    private FileExtDocumentHandler fileExtDocumentHandler = new FileExtDocumentHandler();
 
     /**
      * Default and the only constructor for BackgroundTaskHandler class.
      *
      * @param fileProgressMonitor monitor holding queue of paths
      * @param indexWriter index writer to be written into
+     * @param rootPath 
      */
-    public BackgroundTaskHandler(BackgroundProcessMonitor fileProgressMonitor, IndexWriter indexWriter)
+    public BackgroundTaskHandler(BackgroundProcessMonitor fileProgressMonitor, IndexWriter indexWriter, Path rootPath)
     {
         this.fileProgressMonitor = fileProgressMonitor;
         this.indexWriter = indexWriter;
+        this.rootPath = rootPath;
     }
 
     /**
@@ -48,7 +54,7 @@ public class BackgroundTaskHandler
     {
         for (int i = 0; i < Settings.getNumThreads(); i++)
         {
-            tasks.add(executorService.submit(new BackgroundTask(fileProgressMonitor, indexWriter)));
+            tasks.add(executorService.submit(new BackgroundTask(fileProgressMonitor, indexWriter,fileExtDocumentHandler,rootPath)));
         }
     }
 

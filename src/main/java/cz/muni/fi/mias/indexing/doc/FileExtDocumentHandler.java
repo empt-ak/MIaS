@@ -21,14 +21,8 @@ public class FileExtDocumentHandler{
 
     private static final Logger LOG = LogManager.getLogger(FileExtDocumentHandler.class);
     
-    private Path file;
-    private Path path;
     private MIasDocumentFactory mIasDocumentFactory = new MIasDocumentFactory();
 
-    public FileExtDocumentHandler(Path file, Path path) {
-        this.file = file;
-        this.path = path;
-    }
 
     /**
      * Calls coresponding document for input files based on it's extension. If needed, extracts an archive for file entries.
@@ -54,14 +48,14 @@ public class FileExtDocumentHandler{
                             extEnd = name.length();
                         }
                         ext = name.substring(name.lastIndexOf(".") + 1, extEnd);
-                        MIaSDocument miasDocument = mIasDocumentFactory.buildDocument(ext, new ZipEntryDocument(zipFile, path.toString(), entry));
+                        MIaSDocument miasDocument = mIasDocumentFactory.buildDocument(ext, new ZipEntryDocument(zipFile, path, entry));
                         if (miasDocument != null) {
                             miasDocuments.add(miasDocument);
                         }
                     }
                 }
             } else {
-                DocumentSource source = new FileDocument(file.toFile(), path.toString());
+                DocumentSource source = new FileDocument(file, path);
                 MIaSDocument miasDocument = mIasDocumentFactory.buildDocument(ext, source);
                 if (miasDocument!=null) {
                     miasDocuments.add(miasDocument);

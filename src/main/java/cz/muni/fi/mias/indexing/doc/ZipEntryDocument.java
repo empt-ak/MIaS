@@ -7,6 +7,7 @@ package cz.muni.fi.mias.indexing.doc;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Path;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import org.apache.lucene.document.DateTools;
@@ -23,7 +24,7 @@ import org.apache.lucene.document.TextField;
  */
 public class ZipEntryDocument implements DocumentSource {
     
-    private String path;
+    private Path path;
     private ZipEntry zipEntry;
     private ZipFile zipFile;
 
@@ -33,7 +34,7 @@ public class ZipEntryDocument implements DocumentSource {
      * @param path Relative path to the file
      * @param zipEntry Zip file entry from which the Lucene document will be created.
      */
-    public ZipEntryDocument(ZipFile zipFile, String path, ZipEntry zipEntry) {
+    public ZipEntryDocument(ZipFile zipFile, Path path, ZipEntry zipEntry) {
         this.path = path;
         this.zipFile = zipFile;
         this.zipEntry = zipEntry;
@@ -59,7 +60,7 @@ public class ZipEntryDocument implements DocumentSource {
     @Override
     public Document createDocument() {
         Document doc = new Document();
-        doc.add(new StringField("path", path, Field.Store.YES));
+        doc.add(new StringField("path", path.toString(), Field.Store.YES));
         doc.add(new StringField("id", path + File.separator+zipEntry.getName(), Field.Store.YES));
         doc.add(new StringField("modified",
                 DateTools.timeToString(zipEntry.getTime(), DateTools.Resolution.MINUTE),

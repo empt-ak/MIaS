@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Iterator;
@@ -145,7 +146,7 @@ public class InDocProcessing {
                     Enumeration<? extends ZipEntry> e = zipFile.entries();
                     while (e.hasMoreElements()) {
                         ZipEntry entry = e.nextElement();
-                        insertMathToXML(new ZipEntryDocument(zipFile, path, entry));
+                        insertMathToXML(new ZipEntryDocument(zipFile, Paths.get(path), entry));
                     }
                 } catch (ZipException ex) {
                     LOG.fatal(ex);
@@ -153,7 +154,7 @@ public class InDocProcessing {
                     LOG.fatal(ex);
                 }
             } else {
-                insertMathToXML(new FileDocument(file, path));
+                insertMathToXML(new FileDocument(file.toPath(), Paths.get(path)));
             }
         }
 

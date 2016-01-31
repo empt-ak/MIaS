@@ -29,17 +29,22 @@ public class BackgroundTask implements Callable<Long>
     private static final Logger LOG = LogManager.getLogger(BackgroundTask.class);
     private final BackgroundProcessMonitor fileProgressMonitor;
     private final IndexWriter indexWriter;
+    private FileExtDocumentHandler fileExtDocumentHandler;
+    private Path rootPath;
 
-    public BackgroundTask(BackgroundProcessMonitor fileProgressMonitor, IndexWriter indexWriter)
+    public BackgroundTask(BackgroundProcessMonitor fileProgressMonitor, IndexWriter indexWriter, FileExtDocumentHandler fileExtDocumentHandler,Path rootPath)
     {
         this.fileProgressMonitor = fileProgressMonitor;
         this.indexWriter = indexWriter;
+        this.fileExtDocumentHandler = fileExtDocumentHandler;
+        this.rootPath = rootPath;
     }
 
     @Override
     public Long call() throws Exception
     {
         long start = System.currentTimeMillis();
+        LOG.debug("Thread started at system time {}.",start);
 
         while (!fileProgressMonitor.isDoneLoading() || !fileProgressMonitor.getPaths().isEmpty())
         {
@@ -50,7 +55,9 @@ public class BackgroundTask implements Callable<Long>
             }
             else
             {
-                List<Document> documents = extract(path);
+                LOG.info("Fetched following path {}",path);
+                
+                List<Document> documents = fileExtDocumentHandler.getDocuments(path, rootPath.relativize(path));
                 
                 for(Document doc : documents)
                 {
@@ -61,12 +68,4 @@ public class BackgroundTask implements Callable<Long>
 
         return System.currentTimeMillis() - start;
     }
-
-    private List<Document> extract(Path path)
-    {
-       FileExtDocumentHandler handler = new FileExtDocumentHandler(path, path);
-       
-       return handler.getDocuments(path, path);
-    }
-
 }

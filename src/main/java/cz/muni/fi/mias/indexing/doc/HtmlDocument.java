@@ -59,7 +59,7 @@ public class HtmlDocument extends AbstractMIaSDocument {
         document.add(new TextField("pmath", new MathTokenizer(isr, true, MathTokenizer.MathMLType.PRESENTATION)));
         isr = new InputStreamReader(source.resetStream(), "UTF-8");
         document.add(new TextField("cmath", new MathTokenizer(isr, true, MathTokenizer.MathMLType.CONTENT)));
-        
+        isr.close();
         return Arrays.asList(document);
     }
 

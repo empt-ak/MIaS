@@ -29,8 +29,10 @@ public class MIaSFileVisitor implements FileVisitor<Path>
     private final PathMatcher matcher = FileSystems.getDefault().getPathMatcher("glob:*{html,xhtml,zip}");
     private long docLimit = Settings.getDocLimit();;
     private long processed = 0;
-    public MIaSFileVisitor(BackgroundProcessMonitor fileProgressMonitor)
+    private final Path startPath;
+    public MIaSFileVisitor(BackgroundProcessMonitor fileProgressMonitor, Path startPath)
     {
+        this.startPath = startPath;
         this.fileProgressMonitor = fileProgressMonitor;
     }
 
@@ -84,6 +86,12 @@ public class MIaSFileVisitor implements FileVisitor<Path>
     @Override
     public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException
     {
+        if(dir.equals(this.startPath))
+        {
+            fileProgressMonitor.setDoneLoading(true);
+        }
+        // TODO when we leave directory check if its the one that was passed
+        // as constructor then set monitor to done.
         LOG.trace("Exiting directory {}", dir);
         return FileVisitResult.CONTINUE;
     }

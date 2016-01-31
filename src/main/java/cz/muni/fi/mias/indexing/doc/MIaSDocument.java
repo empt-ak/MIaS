@@ -15,6 +15,11 @@ import org.apache.lucene.document.Document;
  */
 public interface MIaSDocument {
     
+    /**
+     * Method returns list of Lucene documents for given MIaSDocument.
+     * @return list of lucene documents
+     * @throws IOException when any I/O error occurs
+     */
     public List<Document> getDocuments() throws IOException;
 
     public String getLogInfo();

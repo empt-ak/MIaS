@@ -4,10 +4,13 @@
  */
 package cz.muni.fi.mias.indexing.doc;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.document.DateTools;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
@@ -21,22 +24,22 @@ import org.apache.lucene.document.TextField;
  * @author Martin Liska
  */
 public class FileDocument implements DocumentSource {
-    
-    private File file;
-    private String path;
+    private static final Logger LOG = LogManager.getLogger(FileDocument.class);
+    private Path file;
+    private Path path;
 
     /**
      * @param file File from which this DocumentSource is created.
      * @param path Relative path to the file.
      */
-    public FileDocument(File file, String path) {
+    public FileDocument(Path file, Path path) {
         this.file = file;
         this.path = path;
     }
     
     @Override
     public InputStream resetStream() throws IOException {
-       return new FileInputStream(file); 
+       return Files.newInputStream(path, StandardOpenOption.READ);
     }
     
     /**
@@ -54,23 +57,29 @@ public class FileDocument implements DocumentSource {
     public Document createDocument() {
         Document doc = new Document();
 
-        doc.add(new StringField("path", path, Field.Store.YES));
+        doc.add(new StringField("path", path.toString(), Field.Store.YES));
         
-        doc.add(new StringField("id", path, Field.Store.YES));
+        doc.add(new StringField("id", path.toString(), Field.Store.YES));
 
-        doc.add(new StringField("modified",
-                DateTools.timeToString(file.lastModified(), DateTools.Resolution.MINUTE),
+        try
+        {
+            doc.add(new StringField("modified",
+                DateTools.timeToString(Files.getLastModifiedTime(file).toMillis(), DateTools.Resolution.MINUTE),
                 Field.Store.YES));
-
-        doc.add(new LongField("filesize", file.length(), Field.Store.YES));
+            doc.add(new LongField("filesize", Files.size(file), Field.Store.YES));
+        }
+        catch (IOException ex)
+        {
+            LOG.error(ex);
+        }
         
-        doc.add(new TextField("title", file.getName(), Field.Store.YES));
+        doc.add(new TextField("title", file.getFileName().toString(), Field.Store.YES));
         return doc;
     }
 
     @Override
     public String getDocumentSourcePath() {
-        return path;
+        return path.toString();
     }
 
 }
